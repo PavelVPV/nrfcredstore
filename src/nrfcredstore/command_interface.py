@@ -313,3 +313,77 @@ class TLSCredShellInterface(CredentialCommandInterface):
 
     def get_mfw_version(self):
         raise RuntimeError("The TLS Credentials Shell does not support MFW version extraction")
+
+# Index into TLS_CRED_TYPES for the private key. For this interface the private
+# key is a PSA key managed through the nrf_cloud_cred commands, not a regular
+# TLS credential.
+NRF_CLOUD_CRED_PK_TYPE = 2
+
+class NrfCloudCredShellInterface(TLSCredShellInterface):
+    """TLS Credentials Shell variant that generates the device private key and
+    CSR on-device using the 'nrf_cloud_cred' shell commands.
+
+    The private key is created in PSA as a persistent, non-exportable key and
+    never leaves the device. Only the CSR (Base64-encoded DER) is returned to
+    the host. CA and device certificates are still written with the inherited
+    TLS Credentials Shell commands.
+    """
+
+    def generate_key(self, sectag: int) -> bool:
+        """Generate the device private key on-device.
+
+        A pre-existing key is left in place (not an error): the key is present
+        either way and can sign a CSR.
+        """
+        self.write_raw(f"nrf_cloud_cred keygen {sectag}")
+        self.comms.expect_response(
+            ok_pattern="Generated device key",
+            error_pattern="already exists",
+            timeout=10,
+        )
+        return True
+
+    def delete_credential(self, sectag: int, cred_type: int):
+        # The on-device private key is a PSA key, so it must be deleted through
+        # the nrf_cloud_cred command. Certificates are deleted normally.
+        if cred_type == NRF_CLOUD_CRED_PK_TYPE:
+            self.write_raw(f"nrf_cloud_cred delete {sectag}")
+            result, _ = self.comms.expect_response(
+                ok_pattern="Deleted device key",
+                error_pattern="Key deletion failed",
+            )
+            return result
+        return super().delete_credential(sectag, cred_type)
+
+    def get_csr(self, sectag=0, attributes=""):
+        # Ensure a device key exists, then request a CSR signed on-device.
+        self.generate_key(sectag)
+
+        if attributes:
+            self.write_raw(f'nrf_cloud_cred csr {sectag} "{attributes}"')
+        else:
+            self.write_raw(f"nrf_cloud_cred csr {sectag}")
+
+        result, output = self.comms.expect_response(
+            ok_pattern="CSR generation complete",
+            error_pattern="CSR generation failed",
+            store_str="CSR:",
+        )
+        if not result:
+            logger.error("Failed to obtain CSR from device")
+            return None
+
+        for line in output.splitlines():
+            line = line.strip()
+            if line.startswith("CSR:"):
+                # Base64-encoded DER CSR.
+                return line[len("CSR:"):].strip()
+
+        logger.error("CSR not found in device output")
+        return None
+
+    def get_imei(self):
+        raise RuntimeError("nrf_cloud_cred shell does not support IMEI extraction")
+
+    def get_mfw_version(self):
+        raise RuntimeError("nrf_cloud_cred shell does not support MFW version extraction")
