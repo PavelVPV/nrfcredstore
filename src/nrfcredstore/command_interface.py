@@ -382,6 +382,29 @@ class NrfCloudCredShellInterface(TLSCredShellInterface):
         logger.error("CSR not found in device output")
         return None
 
+    def get_pubkey(self, sectag: int) -> Optional[bytes]:
+        """Get the device public key (SEC1 uncompressed point) for verification.
+
+        Returns the raw public key bytes, or None on failure.
+        """
+        self.write_raw(f"nrf_cloud_cred pubkey {sectag}")
+        result, output = self.comms.expect_response(
+            ok_pattern="Public key export complete",
+            error_pattern="Public key export failed",
+            store_str="PUBKEY:",
+        )
+        if not result:
+            logger.error("Failed to get public key from device")
+            return None
+
+        for line in output.splitlines():
+            line = line.strip()
+            if line.startswith("PUBKEY:"):
+                return base64.b64decode(line[len("PUBKEY:"):].strip())
+
+        logger.error("Public key not found in device output")
+        return None
+
     def get_imei(self):
         raise RuntimeError("nrf_cloud_cred shell does not support IMEI extraction")
 
