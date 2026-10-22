@@ -5,7 +5,7 @@ import pytest
 import base64
 
 from nrfcredstore.command_interface import (CredentialCommandInterface, ATCommandInterface,
-                                            TLSCredShellInterface, TLSCredKeygenShellInterface,
+                                            TLSCredShellInterface, DeviceKeyShellInterface,
                                             NrfCloudCredShellInterface)
 from nrfcredstore.credstore import CredType
 
@@ -204,8 +204,8 @@ def test_detect_shell_mode_shell(at_command_interface):
 
 @pytest.fixture
 def keygen_interface(comms):
-    """Mock TLSCredKeygenShellInterface"""
-    return TLSCredKeygenShellInterface(comms)
+    """Mock DeviceKeyShellInterface"""
+    return DeviceKeyShellInterface(comms)
 
 @pytest.fixture
 def nrf_cloud_cred_interface(comms):

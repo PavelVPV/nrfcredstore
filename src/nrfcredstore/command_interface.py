@@ -326,7 +326,7 @@ class TLSCredShellInterface(CredentialCommandInterface):
 KEYGEN_PK_TYPE = 2
 NRF_CLOUD_CRED_PK_TYPE = KEYGEN_PK_TYPE
 
-class TLSCredKeygenShellInterface(TLSCredShellInterface):
+class DeviceKeyShellInterface(TLSCredShellInterface):
     """TLS Credentials Shell variant that generates the device private key and
     CSR on-device using the 'device_key' shell commands.
 
@@ -433,7 +433,7 @@ class TLSCredKeygenShellInterface(TLSCredShellInterface):
     def get_mfw_version(self):
         raise RuntimeError("The key generation shell does not support MFW version extraction")
 
-class NrfCloudCredShellInterface(TLSCredKeygenShellInterface):
+class NrfCloudCredShellInterface(DeviceKeyShellInterface):
     """Key generation using the 'nrf_cloud_cred' shell commands of the nRF Cloud library.
 
     The CSR subject is optional. The device uses its nRF Cloud device ID when it is omitted.

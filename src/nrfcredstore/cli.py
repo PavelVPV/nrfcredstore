@@ -4,7 +4,7 @@ import serial
 import logging
 
 from nrfcredstore.exceptions import ATCommandError, NoATClientException
-from nrfcredstore.command_interface import ATCommandInterface, TLSCredKeygenShellInterface
+from nrfcredstore.command_interface import ATCommandInterface, DeviceKeyShellInterface
 from nrfcredstore.credstore import CredStore, CredType
 from nrfcredstore.comms import Comms
 
@@ -25,9 +25,9 @@ def parse_args(in_args):
     parser.add_argument('--baudrate', type=int, default=115200, help='Serial baudrate')
     parser.add_argument('--timeout', type=int, default=3, help='Serial communication timeout in seconds')
     parser.add_argument('--debug', action='store_true', help='Enable debug logging')
-    parser.add_argument('--cmd-type', choices=['at', 'shell', 'tls-shell', 'auto'], default='auto',
+    parser.add_argument('--cmd-type', choices=['at', 'shell', 'device-key', 'auto'], default='auto',
                         help='Command type to use. "at" for AT commands, "shell" for AT commands in a shell, '
-                             '"tls-shell" for the Zephyr TLS credentials shell commands of a device without a modem '
+                             '"device-key" for the Zephyr TLS credentials shell commands of a device without a modem '
                              '(supports write, delete and generate only), "auto" to detect automatically '
                              'between "at" and "shell".')
     parser.add_argument("--xonxoff",
@@ -87,12 +87,12 @@ def parse_args(in_args):
     return parser.parse_args(in_args)
 
 def exec_cmd(args, credstore):
-    tls_shell = args.cmd_type == 'tls-shell'
+    device_key = args.cmd_type == 'device-key'
 
-    if tls_shell and args.subcommand not in (None, 'write', 'delete', 'generate'):
-        raise RuntimeError(f'The {args.subcommand} subcommand is not supported with --cmd-type tls-shell.')
+    if device_key and args.subcommand not in (None, 'write', 'delete', 'generate'):
+        raise RuntimeError(f'The {args.subcommand} subcommand is not supported with --cmd-type device-key.')
 
-    if args.subcommand and not tls_shell:
+    if args.subcommand and not device_key:
         if not credstore.func_mode(FUN_MODE_OFFLINE):
             raise RuntimeError("Failed to set modem to offline mode.")
 
@@ -150,7 +150,7 @@ def main(args, credstore):
         credstore.command_interface.detect_shell_mode()
     elif args.cmd_type == 'shell':
         credstore.command_interface.set_shell_mode(True)
-    if args.cmd_type != 'tls-shell':
+    if args.cmd_type != 'device-key':
         credstore.command_interface.enable_error_codes()
     exec_cmd(args, credstore)
 
@@ -175,8 +175,8 @@ def run(argv=sys.argv):
     else:
         comms = Comms(port=args.dev, baudrate=args.baudrate, timeout=args.timeout, xonxoff=args.xonxoff, rtscts=not args.rtscts_off, dsrdtr=args.dsrdtr)
 
-    if args.cmd_type == 'tls-shell':
-        cred_if = TLSCredKeygenShellInterface(comms)
+    if args.cmd_type == 'device-key':
+        cred_if = DeviceKeyShellInterface(comms)
     else:
         cred_if = ATCommandInterface(comms)
 

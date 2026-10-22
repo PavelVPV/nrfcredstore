@@ -32,11 +32,11 @@ class CredStore:
     def __init__(self, command_interface):
         self.command_interface = command_interface
 
-    def _is_tls_shell(self) -> bool:
+    def _is_device_key(self) -> bool:
         return isinstance(self.command_interface, TLSCredShellInterface)
 
     @staticmethod
-    def _check_tls_shell_type(type: CredType):
+    def _check_device_key_type(type: CredType):
         """The TLS credentials shell has a CA certificate, a device certificate and a private key."""
         if type not in (CredType.ROOT_CA_CERT, CredType.CLIENT_CERT, CredType.CLIENT_KEY):
             raise ValueError(f'{type.name} is not supported by the TLS credentials shell')
@@ -95,8 +95,8 @@ class CredStore:
         if type == CredType.ANY:
             raise ValueError
         cert = file.read().rstrip()
-        if self._is_tls_shell():
-            self._check_tls_shell_type(type)
+        if self._is_device_key():
+            self._check_device_key_type(type)
             # mbedTLS requires a new line after the PEM footer, which rstrip() removed.
             if not self.command_interface.write_credential(tag, type.value, cert + '\n'):
                 raise RuntimeError("Failed to write credential")
@@ -112,8 +112,8 @@ class CredStore:
 
         if type == CredType.ANY:
             raise ValueError
-        if self._is_tls_shell():
-            self._check_tls_shell_type(type)
+        if self._is_device_key():
+            self._check_device_key_type(type)
             if not self.command_interface.delete_credential(tag, type.value):
                 raise RuntimeError("Failed to delete credential")
             return
